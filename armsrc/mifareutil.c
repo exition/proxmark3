@@ -78,8 +78,7 @@ uint8_t mf_crypto1_encrypt4bit(struct Crypto1State *pcs, uint8_t data) {
 }
 
 // send X byte basic commands
-int mifare_sendcmd(uint8_t cmd, uint8_t* data, uint8_t data_size, uint8_t* answer, uint8_t *answer_parity, uint32_t *timing)
-{
+int mifare_sendcmd(uint8_t cmd, uint8_t* data, uint8_t data_size, uint8_t* answer, uint8_t *answer_parity, uint32_t *timing) {
 	uint8_t dcmd[data_size+3];
 	dcmd[0] = cmd;
 	memcpy(dcmd+1,data,data_size);
@@ -95,8 +94,7 @@ int mifare_sendcmd(uint8_t cmd, uint8_t* data, uint8_t data_size, uint8_t* answe
 }
 
 // send 2 byte commands
-int mifare_sendcmd_short(struct Crypto1State *pcs, uint8_t crypted, uint8_t cmd, uint8_t data, uint8_t *answer, uint8_t *answer_parity, uint32_t *timing)
-{
+int mifare_sendcmd_short(struct Crypto1State *pcs, uint8_t crypted, uint8_t cmd, uint8_t data, uint8_t *answer, uint8_t *answer_parity, uint32_t *timing) {
 	uint8_t dcmd[4], ecmd[4];
 	uint16_t pos, res;
 	uint8_t par[1];         // 1 Byte parity is enough here
@@ -113,9 +111,7 @@ int mifare_sendcmd_short(struct Crypto1State *pcs, uint8_t crypted, uint8_t cmd,
 			ecmd[pos] = crypto1_byte(pcs, 0x00, 0) ^ dcmd[pos];
 			par[0] |= (((filter(pcs->odd) ^ oddparity8(dcmd[pos])) & 0x01) << (7-pos));
 		}
-
 		ReaderTransmitPar(ecmd, sizeof(ecmd), par, timing);
-
 	} else {
 		ReaderTransmit(dcmd, sizeof(dcmd), timing);
 	}
@@ -143,18 +139,18 @@ int mifare_sendcmd_short(struct Crypto1State *pcs, uint8_t crypted, uint8_t cmd,
 	return len;
 }
 
+
 // mifare classic commands
-int mifare_classic_auth(struct Crypto1State *pcs, uint32_t uid, uint8_t blockNo, uint8_t keyType, uint64_t ui64Key, uint8_t isNested)
-{
-	return mifare_classic_authex(pcs, uid, blockNo, keyType, ui64Key, isNested, NULL, NULL);
+int mifare_classic_auth(struct Crypto1State *pcs, uint32_t uid, uint8_t blockNo, uint8_t keyType, uint64_t ui64Key, uint8_t isNested, uint32_t *auth_timeout) {
+
+	return mifare_classic_authex(pcs, uid, blockNo, keyType, ui64Key, isNested, NULL, NULL, auth_timeout);
 }
 
-int mifare_classic_authex(struct Crypto1State *pcs, uint32_t uid, uint8_t blockNo, uint8_t keyType, uint64_t ui64Key, uint8_t isNested, uint32_t *ntptr, uint32_t *timing)
-{
-	// variables
+
+int mifare_classic_authex(struct Crypto1State *pcs, uint32_t uid, uint8_t blockNo, uint8_t keyType, uint64_t ui64Key, uint8_t isNested, uint32_t *ntptr, uint32_t *timing, uint32_t *auth_timeout) {
+
 	int len;
 	uint32_t pos;
-	uint8_t tmp4[4];
 	uint8_t par[1] = {0x00};
 	byte_t nr[4];
 	uint32_t nt, ntpp; // Supplied tag nonce
@@ -202,8 +198,7 @@ int mifare_classic_authex(struct Crypto1State *pcs, uint32_t uid, uint8_t blockN
 
 	// Generate (encrypted) nr+parity by loading it into the cipher (Nr)
 	par[0] = 0;
-	for (pos = 0; pos < 4; pos++)
-	{
+	for (pos = 0; pos < 4; pos++) {
 		mf_nr_ar[pos] = crypto1_byte(pcs, nr[pos], 0) ^ nr[pos];
 		par[0] |= (((filter(pcs->odd) ^ oddparity8(nr[pos])) & 0x01) << (7-pos));
 	}
@@ -212,10 +207,9 @@ int mifare_classic_authex(struct Crypto1State *pcs, uint32_t uid, uint8_t blockN
 	nt = prng_successor(nt,32);
 
 	//  ar+parity
-	for (pos = 4; pos < 8; pos++)
-	{
+	for (pos = 4; pos < 8; pos++) {
 		nt = prng_successor(nt,8);
-		mf_nr_ar[pos] = crypto1_byte(pcs,0x00,0) ^ (nt & 0xff);
+		mf_nr_ar[pos] = crypto1_byte(pcs, 0x00, 0) ^ (nt & 0xff);
 		par[0] |= (((filter(pcs->odd) ^ oddparity8(nt)) & 0x01) << (7-pos));
 	}
 
@@ -223,17 +217,24 @@ int mifare_classic_authex(struct Crypto1State *pcs, uint32_t uid, uint8_t blockN
 	ReaderTransmitPar(mf_nr_ar, sizeof(mf_nr_ar), par, NULL);
 
 	// Receive 4 byte tag answer
+	uint32_t save_timeout = iso14a_get_timeout(); // save standard timeout
+	if (auth_timeout && *auth_timeout) {
+		iso14a_set_timeout(*auth_timeout);        // set timeout for authentication response
+	}
+	uint32_t auth_timeout_start = GetCountSspClk();
 	len = ReaderReceive(receivedAnswer, receivedAnswerPar);
-	if (!len)
-	{
+	iso14a_set_timeout(save_timeout);             // restore standard timeout
+	if (!len) {
 		if (MF_DBGLEVEL >= 1)   Dbprintf("Authentication failed. Card timeout.");
 		return 2;
 	}
+	if (auth_timeout && !*auth_timeout) {         // measure time for future authentication response timeout
+		*auth_timeout = (GetCountSspClk() - auth_timeout_start - (len * 9 + 2) * 8) / 8 + 1;
+	}
 
-	memcpy(tmp4, receivedAnswer, 4);
-	ntpp = prng_successor(nt, 32) ^ crypto1_word(pcs, 0,0);
+	ntpp = prng_successor(nt, 32) ^ crypto1_word(pcs, 0, 0);
 
-	if (ntpp != bytes_to_num(tmp4, 4)) {
+	if (ntpp != bytes_to_num(receivedAnswer, 4)) {
 		if (MF_DBGLEVEL >= 1)   Dbprintf("Authentication failed. Error card response.");
 		return 3;
 	}
@@ -241,8 +242,8 @@ int mifare_classic_authex(struct Crypto1State *pcs, uint32_t uid, uint8_t blockN
 	return 0;
 }
 
-int mifare_classic_readblock(struct Crypto1State *pcs, uint32_t uid, uint8_t blockNo, uint8_t *blockData)
-{
+
+int mifare_classic_readblock(struct Crypto1State *pcs, uint32_t uid, uint8_t blockNo, uint8_t *blockData) {
 	// variables
 	int len;
 	uint8_t bt[2];
@@ -811,18 +812,17 @@ int mifare_desfire_des_auth2(uint32_t uid, uint8_t *key, uint8_t *blockData){
 //
 //-----------------------------------------------------------------------------
 // one key check
-int MifareChkBlockKey(uint8_t *uid, uint32_t *cuid, uint8_t *cascade_levels, uint64_t ui64Key, uint8_t blockNo, uint8_t keyType, uint8_t debugLevel) {
+static int MifareChkBlockKey(uint8_t *uid, uint32_t *cuid, uint8_t *cascade_levels, uint8_t *key, uint8_t blockNo, uint8_t keyType, uint32_t *auth_timeout, uint8_t debugLevel, bool fixed_nonce) {
 
 	struct Crypto1State mpcs = {0, 0};
 	struct Crypto1State *pcs;
 	pcs = &mpcs;
 
-	// Iceman: use piwi's faster nonce collecting part in hardnested.
 	if (*cascade_levels == 0) { // need a full select cycle to get the uid first
 		iso14a_card_select_t card_info;
-		if(!iso14443a_select_card(uid, &card_info, cuid, true, 0, true)) {
+		if (!iso14443a_select_card(uid, &card_info, cuid, true, 0, true)) {
 			if (debugLevel >= 1)    Dbprintf("ChkKeys: Can't select card");
-			return  1;
+			return  -1;
 		}
 		switch (card_info.uidlen) {
 			case 4 : *cascade_levels = 1; break;
@@ -831,77 +831,92 @@ int MifareChkBlockKey(uint8_t *uid, uint32_t *cuid, uint8_t *cascade_levels, uin
 			default: break;
 		}
 	} else { // no need for anticollision. We can directly select the card
-		if(!iso14443a_select_card(uid, NULL, NULL, false, *cascade_levels, true)) {
+		if (!iso14443a_select_card(uid, NULL, NULL, false, *cascade_levels, true)) {
 			if (debugLevel >= 1)    Dbprintf("ChkKeys: Can't select card (UID) lvl=%d", *cascade_levels);
-			return  1;
+			return  -1;
 		}
 	}
 
-	if(mifare_classic_auth(pcs, *cuid, blockNo, keyType, ui64Key, AUTH_FIRST)) {
-//      SpinDelayUs(AUTHENTICATION_TIMEOUT); // it not needs because mifare_classic_auth have timeout from iso14a_set_timeout()
-		return 2;
+	if (!fixed_nonce) {
+		uint64_t ui64Key = bytes_to_num(key, 6);
+		if (mifare_classic_auth(pcs, *cuid, blockNo, keyType, ui64Key, AUTH_FIRST, auth_timeout)) { // authentication failed
+			return -2;
+		} else {
+			mifare_classic_halt(pcs, *cuid);
+		}
 	} else {
-/*      // let it be here. it like halt command, but maybe it will work in some strange cases
-		uint8_t dummy_answer = 0;
-		ReaderTransmit(&dummy_answer, 1, NULL);
-		int timeout = GetCountSspClk() + AUTHENTICATION_TIMEOUT;
-		// wait for the card to become ready again
-		while(GetCountSspClk() < timeout) {};
-*/
-		// it needs after success authentication
-		mifare_classic_halt(pcs, *cuid);
+		uint8_t receivedAnswer[MAX_MIFARE_FRAME_SIZE];
+		uint8_t receivedAnswerPar[MAX_MIFARE_PARITY_SIZE];
+		// Transmit MIFARE_CLASSIC_AUTH
+		int len = mifare_sendcmd_short(pcs, false, keyType & 0x01 ? MIFARE_AUTH_KEYB : MIFARE_AUTH_KEYA, blockNo, receivedAnswer, receivedAnswerPar, NULL);
+		if (len != 4) return -2;
+		// Transmit encrypted reader nonce and reader answer
+		uint8_t mf_nr_ar[8] = NESTED_FIXED_NR_ENC;
+		memcpy(mf_nr_ar + 4, key, 4);
+		ReaderTransmitPar(mf_nr_ar, sizeof(mf_nr_ar), key + 4, NULL);
+		uint32_t save_timeout = iso14a_get_timeout(); // save standard timeout
+		iso14a_set_timeout(*auth_timeout);            // set timeout for authentication response
+		len = ReaderReceive(receivedAnswer, receivedAnswerPar);
+		iso14a_set_timeout(save_timeout);             // restore standard timeout
+		if (!len) return -2;
 	}
 
-	return 0;
+	return 0; // success
 }
 
 // multi key check
-int MifareChkBlockKeys(uint8_t *keys, uint8_t keyCount, uint8_t blockNo, uint8_t keyType, uint8_t debugLevel) {
+static int MifareChkBlockKeysEx(uint8_t *keys, uint8_t keyCount, uint8_t blockNo, uint8_t keyType, uint32_t *auth_timeout, uint8_t debugLevel, bool fixed_nonce) {
+
 	uint8_t uid[10];
 	uint32_t cuid = 0;
 	uint8_t cascade_levels = 0;
-	uint64_t ui64Key = 0;
 
 	int retryCount = 0;
 	for (uint8_t i = 0; i < keyCount; i++) {
-
-		// Allow button press / usb cmd to interrupt device
-		if (BUTTON_PRESS() && !usb_poll_validate_length()) {
-			Dbprintf("ChkKeys: Cancel operation. Exit...");
-			return -2;
-		}
-
-		ui64Key = bytes_to_num(keys + i * 6, 6);
-		int res = MifareChkBlockKey(uid, &cuid, &cascade_levels, ui64Key, blockNo, keyType, debugLevel);
-
-		// can't select
-		if (res == 1) {
+		uint8_t bytes_per_key = fixed_nonce ? 5 : 6;
+		int res = MifareChkBlockKey(uid, &cuid, &cascade_levels, keys + i*bytes_per_key, blockNo, keyType, auth_timeout, debugLevel, fixed_nonce);
+		if (res == -1) { 		// couldn't select
 			retryCount++;
 			if (retryCount >= 5) {
-				Dbprintf("ChkKeys: block=%d key=%d. Can't select. Exit...", blockNo, keyType);
+				Dbprintf("ChkKeys: block=%d key=%d. Couldn't select. Exit...", blockNo, keyType);
 				return -1;
+			} else {
+				--i; // try the same key once again
+				SpinDelay(20);
+				// Dbprintf("ChkKeys: block=%d key=%d. Try the same key once again...", blockNo, keyType);
+				continue;
 			}
-			--i; // try the same key once again
-
-			SpinDelay(20);
-//          Dbprintf("ChkKeys: block=%d key=%d. Try the same key once again...", blockNo, keyType);
+		}
+		if (res == -2) { 		// couldn't authenticate with this key
+			retryCount = 0;
 			continue;
 		}
 
-		// can't authenticate
-		if (res == 2) {
-			retryCount = 0;
-			continue; // can't auth. wrong key.
-		}
+		return i + 1;           // successful authentication
 
-		return i + 1;
 	}
 
-	return 0;
+	if (BUTTON_PRESS()) {
+		return -2;
+	}
+
+	return 0;                   // couldn't authenticate with any key
 }
 
+
+int MifareChkBlockKeys(uint8_t *keys, uint8_t keyCount, uint8_t blockNo, uint8_t keyType, uint32_t *auth_timeout, uint8_t debugLevel) {
+	return MifareChkBlockKeysEx(keys, keyCount, blockNo, keyType, auth_timeout, debugLevel, false);
+}
+
+
+// fixed nonce check
+int MifareChkBlockKeysFixedNonce(uint8_t *ar_par, uint8_t ar_par_cnt, uint8_t blockNo, uint8_t keyType, uint32_t *auth_timeout, uint8_t debugLevel) {
+	return MifareChkBlockKeysEx(ar_par, ar_par_cnt, blockNo, keyType, auth_timeout, debugLevel, true);
+}
+
+
 // multisector multikey check
-int MifareMultisectorChk(uint8_t *keys, uint8_t keyCount, uint8_t SectorCount, uint8_t keyType, uint8_t debugLevel, TKeyIndex *keyIndex) {
+int MifareMultisectorChk(uint8_t *keys, uint8_t keyCount, uint8_t SectorCount, uint8_t keyType, uint32_t *auth_timeout, uint8_t debugLevel, TKeyIndex *keyIndex) {
 	int res = 0;
 
 //  int clk = GetCountSspClk();
@@ -911,11 +926,11 @@ int MifareMultisectorChk(uint8_t *keys, uint8_t keyCount, uint8_t SectorCount, u
 
 		int keyAB = keyType;
 		do {
-			res = MifareChkBlockKeys(keys, keyCount, FirstBlockOfSector(sc), keyAB & 0x01, debugLevel);
-			if (res < 0){
+			res = MifareChkBlockKeys(keys, keyCount, FirstBlockOfSector(sc), keyAB & 0x01, auth_timeout, debugLevel);
+			if (res < 0) {
 				return res;
 			}
-			if (res > 0){
+			if (res > 0) {
 				(*keyIndex)[keyAB & 0x01][sc] = res;
 			}
 		} while(--keyAB > 0);
@@ -923,7 +938,7 @@ int MifareMultisectorChk(uint8_t *keys, uint8_t keyCount, uint8_t SectorCount, u
 
 //  Dbprintf("%d %d", GetCountSspClk() - clk, (GetCountSspClk() - clk)/(SectorCount*keyCount*(keyType==2?2:1)));
 
-	return 0;
+	return 1;
 }
 
 

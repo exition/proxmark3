@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 #include "proxmark3.h"
-#include "cmd.h"
+#include "usb_cdc.h"
 #include "crapto1/crapto1.h"
 #include "iso14443a.h"
 #include "BigBuf.h"
@@ -87,7 +87,7 @@ void MifareReadBlock(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain)
 			break;
 		};
 
-		if(mifare_classic_auth(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST)) {
+		if(mifare_classic_auth(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, NULL)) {
 			if (MF_DBGLEVEL >= 1)   Dbprintf("Auth error");
 			break;
 		};
@@ -111,11 +111,12 @@ void MifareReadBlock(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain)
 
 	if (MF_DBGLEVEL >= 2)   DbpString("READ BLOCK FINISHED");
 
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
 	LED_B_ON();
 	cmd_send(CMD_ACK,isOK,0,0,dataoutbuf,16);
 	LED_B_OFF();
 
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LEDsoff();
 }
 
@@ -202,9 +203,10 @@ void MifareUReadBlock(uint8_t arg0, uint8_t arg1, uint8_t *datain)
 		return;
 	}
 
-	cmd_send(CMD_ACK,1,0,0,dataout,16);
 	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LED_D_OFF();
+
+	cmd_send(CMD_ACK,1,0,0,dataout,16);
 	LED_A_OFF();
 }
 
@@ -244,7 +246,7 @@ void MifareReadSector(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain)
 	}
 
 
-	if(isOK && mifare_classic_auth(pcs, cuid, FirstBlockOfSector(sectorNo), keyType, ui64Key, AUTH_FIRST)) {
+	if(isOK && mifare_classic_auth(pcs, cuid, FirstBlockOfSector(sectorNo), keyType, ui64Key, AUTH_FIRST, NULL)) {
 		isOK = 0;
 		if (MF_DBGLEVEL >= 1)   Dbprintf("Auth error");
 	}
@@ -266,12 +268,13 @@ void MifareReadSector(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain)
 
 	if (MF_DBGLEVEL >= 2) DbpString("READ SECTOR FINISHED");
 
+	// Thats it...
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
 	LED_B_ON();
 	cmd_send(CMD_ACK,isOK,0,0,dataoutbuf,16*NumBlocksPerSector(sectorNo));
 	LED_B_OFF();
 
-	// Thats it...
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LEDsoff();
 }
 
@@ -362,10 +365,11 @@ void MifareUReadCard(uint8_t arg0, uint16_t arg1, uint8_t arg2, uint8_t *datain)
 
 	if (MF_DBGLEVEL >= MF_DBG_DEBUG) Dbprintf("Blocks read %d", countblocks);
 
-	cmd_send(CMD_ACK, 1, countblocks*4, BigBuf_max_traceLen(), 0, 0);
-
 	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LED_D_OFF();
+
+	cmd_send(CMD_ACK, 1, countblocks*4, BigBuf_max_traceLen(), 0, 0);
+
 	BigBuf_free();
 	LED_A_OFF();
 }
@@ -407,7 +411,7 @@ void MifareWriteBlock(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain)
 			break;
 		};
 
-		if(mifare_classic_auth(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST)) {
+		if(mifare_classic_auth(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, NULL)) {
 			if (MF_DBGLEVEL >= 1)   Dbprintf("Auth error");
 			break;
 		};
@@ -431,13 +435,14 @@ void MifareWriteBlock(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain)
 
 	if (MF_DBGLEVEL >= 2)   DbpString("WRITE BLOCK FINISHED");
 
+	// Thats it...
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
 	LED_B_ON();
 	cmd_send(CMD_ACK,isOK,0,0,0,0);
 	LED_B_OFF();
 
 
-	// Thats it...
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LEDsoff();
 }
 
@@ -475,8 +480,9 @@ void MifareUWriteBlockCompat(uint8_t arg0, uint8_t *datain)
 
 	if (MF_DBGLEVEL >= 2)   DbpString("WRITE BLOCK FINISHED");
 
-	cmd_send(CMD_ACK,1,0,0,0,0);
 	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
+	cmd_send(CMD_ACK,1,0,0,0,0);
 	LEDsoff();
 }
 */
@@ -544,8 +550,9 @@ void MifareUWriteBlock(uint8_t arg0, uint8_t arg1, uint8_t *datain)
 
 	if (MF_DBGLEVEL >= 2) DbpString("WRITE BLOCK FINISHED");
 
-	cmd_send(CMD_ACK,1,0,0,0,0);
 	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
+	cmd_send(CMD_ACK,1,0,0,0,0);
 	LEDsoff();
 }
 
@@ -613,8 +620,9 @@ void MifareUSetPwd(uint8_t arg0, uint8_t *datain){
 		return;
 	};
 
-	cmd_send(CMD_ACK,1,0,0,0,0);
 	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
+	cmd_send(CMD_ACK,1,0,0,0,0);
 	LEDsoff();
 }
 
@@ -632,8 +640,7 @@ int valid_nonce(uint32_t Nt, uint32_t NtEnc, uint32_t Ks1, uint8_t *parity) {
 // Mifare Classic Cards" in Proceedings of the 22nd ACM SIGSAC Conference on
 // Computer and Communications Security, 2015
 //-----------------------------------------------------------------------------
-void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, uint8_t *datain)
-{
+void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, uint8_t *datain) {
 	uint64_t ui64Key = 0;
 	uint8_t uid[10];
 	uint32_t cuid;
@@ -658,15 +665,12 @@ void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, 
 	bool field_off = flags & 0x0004;
 
 	LED_A_ON();
-	LED_C_OFF();
 
 	if (initialize) {
 		iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
 		clear_trace();
 		set_tracing(true);
 	}
-
-	LED_C_ON();
 
 	uint16_t num_nonces = 0;
 	bool have_uid = false;
@@ -705,7 +709,7 @@ void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, 
 		}
 
 		uint32_t nt1;
-		if (mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, &nt1, NULL)) {
+		if (mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, &nt1, NULL, NULL)) {
 			if (MF_DBGLEVEL >= 1)   Dbprintf("AcquireNonces: Auth1 error");
 			continue;
 		}
@@ -739,20 +743,18 @@ void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, 
 
 	}
 
-	LED_C_OFF();
-
 	crypto1_destroy(pcs);
-
-	LED_B_ON();
-	cmd_send(CMD_ACK, isOK, cuid, num_nonces, buf, sizeof(buf));
-	LED_B_OFF();
-
-	if (MF_DBGLEVEL >= 3)   DbpString("AcquireEncryptedNonces finished");
 
 	if (field_off) {
 		FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-		LEDsoff();
+		LED_D_OFF();
 	}
+
+	if (MF_DBGLEVEL >= 3)   DbpString("AcquireEncryptedNonces finished");
+
+	cmd_send(CMD_ACK, isOK, cuid, num_nonces, buf, sizeof(buf));
+
+	LED_A_OFF();
 }
 
 
@@ -760,9 +762,8 @@ void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, 
 // MIFARE nested authentication.
 //
 //-----------------------------------------------------------------------------
-void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *datain)
-{
-	// params
+void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *datain) {
+
 	uint8_t blockNo = arg0 & 0xff;
 	uint8_t keyType = (arg0 >> 8) & 0xff;
 	uint8_t targetBlockNo = arg1 & 0xff;
@@ -771,14 +772,15 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 
 	ui64Key = bytes_to_num(datain, 6);
 
-	// variables
 	uint16_t rtr, i, j, len;
 	uint16_t davg;
 	static uint16_t dmin, dmax;
 	uint8_t uid[10];
-	uint32_t cuid, nt1, nt2, nttmp, nttest, ks1;
+	uint32_t cuid, nt1, nt2_enc, nttmp, nttest, ks1;
 	uint8_t par[1];
 	uint32_t target_nt[2], target_ks[2];
+	uint32_t fixed_nt = 0;
+	uint8_t target_nt_duplicate_count = 0;
 
 	uint8_t par_array[4];
 	uint16_t ncount = 0;
@@ -787,11 +789,10 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 	pcs = &mpcs;
 	uint8_t receivedAnswer[MAX_MIFARE_FRAME_SIZE];
 
-	uint32_t auth1_time, auth2_time;
+	uint32_t auth1_time, auth2_time, authentication_timeout = 0;
 	static uint16_t delta_time;
 
 	LED_A_ON();
-	LED_C_OFF();
 	iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
 
 	// free eventually allocated BigBuf memory
@@ -805,7 +806,6 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 	#define NESTED_MAX_TRIES 12
 	uint16_t unsuccessfull_tries = 0;
 	if (calibrate) {    // for first call only. Otherwise reuse previous calibration
-		LED_B_ON();
 		WDT_HIT();
 
 		davg = dmax = 0;
@@ -814,38 +814,39 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 
 		for (rtr = 0; rtr < 17; rtr++) {
 
-			// Test if the action was cancelled
-			if(BUTTON_PRESS()) {
-				isOK = -2;
-				break;
-			}
-
 			// prepare next select. No need to power down the card.
-			if(mifare_classic_halt(pcs, cuid)) {
+			if (mifare_classic_halt(pcs, cuid)) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Halt error");
 				rtr--;
 				continue;
 			}
 
-			if(!iso14443a_select_card(uid, NULL, &cuid, true, 0, true)) {
+			// Test if the action was cancelled
+			if (BUTTON_PRESS()) {
+				isOK = -2;
+				break;
+			}
+
+			if (!iso14443a_select_card(uid, NULL, &cuid, true, 0, true)) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Can't select card");
 				rtr--;
 				continue;
 			};
 
 			auth1_time = 0;
-			if(mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, &nt1, &auth1_time)) {
+			if (mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, &nt1, &auth1_time, NULL)) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Auth1 error");
 				rtr--;
 				continue;
 			};
+			fixed_nt = nt1;
 
 			if (delta_time) {
 				auth2_time = auth1_time + delta_time;
 			} else {
 				auth2_time = 0;
 			}
-			if(mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_NESTED, &nt2, &auth2_time)) {
+			if (mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_NESTED, &nt2_enc, &auth2_time, NULL)) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Auth2 error");
 				rtr--;
 				continue;
@@ -854,7 +855,7 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 			nttmp = prng_successor(nt1, 100);               //NXP Mifare is typical around 840,but for some unlicensed/compatible mifare card this can be 160
 			for (i = 101; i < 1200; i++) {
 				nttmp = prng_successor(nttmp, 1);
-				if (nttmp == nt2) break;
+				if (nttmp == nt2_enc) break;
 			}
 
 			if (i != 1200) {
@@ -882,35 +883,38 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 		dmin = davg - 2;
 		dmax = davg + 2;
 
-		LED_B_OFF();
-
 	}
 	//  -------------------------------------------------------------------------------------------------
 
-	LED_C_ON();
-
 	//  get crypted nonces for target sector
-	for(i=0; i < 2 && !isOK; i++) { // look for exactly two different nonces
+	for (i = 0; i < 2 && !isOK; i++) { // look for exactly two different nonces
 
 		target_nt[i] = 0;
-		while(target_nt[i] == 0) { // continue until we have an unambiguous nonce
+		while (target_nt[i] == 0 && !isOK) { // continue until we have an unambiguous nonce
 
 			// prepare next select. No need to power down the card.
-			if(mifare_classic_halt(pcs, cuid)) {
+			if (mifare_classic_halt(pcs, cuid)) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Halt error");
 				continue;
 			}
 
-			if(!iso14443a_select_card(uid, NULL, &cuid, true, 0, true)) {
+			// break out of the loop on button press
+			if (BUTTON_PRESS()) {
+				isOK = -2;
+				break;
+			}
+
+			if (!iso14443a_select_card(uid, NULL, &cuid, true, 0, true)) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Can't select card");
 				continue;
-			};
+			}
 
 			auth1_time = 0;
-			if(mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, &nt1, &auth1_time)) {
-				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Auth1 error");
+			authentication_timeout = 0;
+			if (mifare_classic_authex(pcs, cuid, blockNo, keyType, ui64Key, AUTH_FIRST, &nt1, &auth1_time, &authentication_timeout)) {
+				if (MF_DBGLEVEL >= 1)  Dbprintf("Nested: Auth1 error");
 				continue;
-			};
+			}
 
 			// nested authentication
 			auth2_time = auth1_time + delta_time;
@@ -918,10 +922,10 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 			if (len != 4) {
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Nested: Auth2 error len=%d", len);
 				continue;
-			};
+			}
 
-			nt2 = bytes_to_num(receivedAnswer, 4);
-			if (MF_DBGLEVEL >= 3) Dbprintf("Nonce#%d: Testing nt1=%08x nt2enc=%08x nt2par=%02x", i+1, nt1, nt2, par[0]);
+			nt2_enc = bytes_to_num(receivedAnswer, 4);
+			if (MF_DBGLEVEL >= 3) Dbprintf("Nonce#%d: Testing nt1=%08x nt2enc=%08x nt2par=%02x", i+1, nt1, nt2_enc, par[0]);
 
 			// Parity validity check
 			for (j = 0; j < 4; j++) {
@@ -932,9 +936,9 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 			nttest = prng_successor(nt1, dmin - 1);
 			for (j = dmin; j < dmax + 1; j++) {
 				nttest = prng_successor(nttest, 1);
-				ks1 = nt2 ^ nttest;
+				ks1 = nt2_enc ^ nttest;
 
-				if (valid_nonce(nttest, nt2, ks1, par_array)){
+				if (valid_nonce(nttest, nt2_enc, ks1, par_array)){
 					if (ncount > 0) {       // we are only interested in disambiguous nonces, try again
 						if (MF_DBGLEVEL >= 3) Dbprintf("Nonce#%d: dismissed (ambigous), ntdist=%d", i+1, j);
 						target_nt[i] = 0;
@@ -944,7 +948,12 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 					target_ks[i] = ks1;
 					ncount++;
 					if (i == 1 && target_nt[1] == target_nt[0]) { // we need two different nonces
-						target_nt[i] = 0;
+						if( ++target_nt_duplicate_count >= NESTED_MAX_TRIES ) { // unable to get a 2nd nonce after NESTED_MAX_TRIES tries, probably a fixed nonce
+							if (MF_DBGLEVEL >= 2) Dbprintf("Nonce#2: cannot get nonce that != nonce#1, continuing anyway with single nonce! ntdist=%d", j);
+							break;
+						}
+
+						target_nt[1] = 0;
 						if (MF_DBGLEVEL >= 3) Dbprintf("Nonce#2: dismissed (= nonce#1), ntdist=%d", j);
 						break;
 					}
@@ -955,84 +964,93 @@ void MifareNested(uint32_t arg0, uint32_t arg1, uint32_t calibrate, uint8_t *dat
 		}
 	}
 
-	LED_C_OFF();
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+	LED_D_OFF();
 
-	//  ----------------------------- crypto1 destroy
 	crypto1_destroy(pcs);
 
-	byte_t buf[4 + 4 * 4];
+	uint8_t buf[4 + 4 * 4 + 4 + 4];
 	memcpy(buf, &cuid, 4);
 	memcpy(buf+4, &target_nt[0], 4);
 	memcpy(buf+8, &target_ks[0], 4);
 	memcpy(buf+12, &target_nt[1], 4);
 	memcpy(buf+16, &target_ks[1], 4);
-
-	LED_B_ON();
-	cmd_send(CMD_ACK, isOK, 0, targetBlockNo + (targetKeyType * 0x100), buf, sizeof(buf));
-	LED_B_OFF();
+	memcpy(buf+20, &authentication_timeout, 4);
+	memcpy(buf+24, &fixed_nt, 4);
 
 	if (MF_DBGLEVEL >= 3)   DbpString("NESTED FINISHED");
 
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-	LEDsoff();
+	cmd_send(CMD_ACK, isOK, 0, targetBlockNo + (targetKeyType * 0x100), buf, sizeof(buf));
+
+	LED_A_OFF();
 }
+
 
 //-----------------------------------------------------------------------------
 // MIFARE check keys. key count up to 85.
 //
 //-----------------------------------------------------------------------------
-void MifareChkKeys(uint16_t arg0, uint16_t arg1, uint8_t arg2, uint8_t *datain)
-{
+void MifareChkKeys(uint16_t arg0, uint32_t arg1, uint8_t arg2, uint8_t *datain) {
+
 	uint8_t blockNo = arg0 & 0xff;
-	uint8_t keyType = (arg0 >> 8) & 0xff;
+	uint8_t keyType = arg0 >> 8;
 	bool clearTrace = arg1 & 0x01;
 	bool multisectorCheck = arg1 & 0x02;
-	uint8_t set14aTimeout = (arg1 >> 8) & 0xff;
+	bool init = arg1 & 0x04;
+	bool drop_field = arg1 & 0x08;
+	bool fixed_nonce = arg1 & 0x10;
+	uint32_t auth_timeout = arg1 >> 16;
 	uint8_t keyCount = arg2;
 
 	LED_A_ON();
 
-	// clear debug level
-	int OLD_MF_DBGLEVEL = MF_DBGLEVEL;
-	MF_DBGLEVEL = MF_DBG_NONE;
-
-	iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-
+	if (init) {
+		iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
+	}
+	
 	if (clearTrace) {
 		clear_trace();
 	}
 	set_tracing(true);
 
-	if (set14aTimeout){
-		iso14a_set_timeout(set14aTimeout * 10); // timeout: ms = x/106  35-minimum, 50-OK 106-recommended 500-safe
-	}
+	// clear debug level. We are expecting lots of authentication failures...
+	int OLD_MF_DBGLEVEL = MF_DBGLEVEL;
+	MF_DBGLEVEL = MF_DBG_NONE;
 
+	int res = 0;
 	if (multisectorCheck) {
 		TKeyIndex keyIndex = {{0}};
 		uint8_t sectorCnt = blockNo;
-		int res = MifareMultisectorChk(datain, keyCount, sectorCnt, keyType, OLD_MF_DBGLEVEL, &keyIndex);
-
+		res = MifareMultisectorChk(datain, keyCount, sectorCnt, keyType, &auth_timeout, OLD_MF_DBGLEVEL, &keyIndex);
 		if (res >= 0) {
-			cmd_send(CMD_ACK, 1, 0, 0, keyIndex, 80);
+			cmd_send(CMD_ACK, 1, res, 0, keyIndex, 80);
 		} else {
-			cmd_send(CMD_ACK, 0, 0, 0, NULL, 0);
+			cmd_send(CMD_ACK, 0, res, 0, NULL, 0);
 		}
-	} else {	
-		int res = MifareChkBlockKeys(datain, keyCount, blockNo, keyType, OLD_MF_DBGLEVEL);
-		
+	} else if (fixed_nonce) {
+		res = MifareChkBlockKeysFixedNonce(datain, keyCount, blockNo, keyType, &auth_timeout, OLD_MF_DBGLEVEL);
 		if (res > 0) {
-			cmd_send(CMD_ACK, 1, 0, 0, datain + (res - 1) * 6, 6);
+			cmd_send(CMD_ACK, 1, res, 0, NULL, 0); // key found
 		} else {
-			cmd_send(CMD_ACK, 0, 0, 0, NULL, 0);
+			cmd_send(CMD_ACK, 0, res, 0, NULL, 0); // no key found or aborted
+		}
+	} else {
+		res = MifareChkBlockKeys(datain, keyCount, blockNo, keyType, &auth_timeout, OLD_MF_DBGLEVEL);
+		if (res > 0) {
+			cmd_send(CMD_ACK, 1, res, 0, datain + (res - 1) * 6, 6);
+		} else {
+			cmd_send(CMD_ACK, 0, res, 0, NULL, 0);
 		}
 	}
 
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-	LED_D_OFF();
+	if (drop_field || res != 0) {
+		FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+		LED_D_OFF();
+	}
 
 	// restore debug level
 	MF_DBGLEVEL = OLD_MF_DBGLEVEL;
-	
+
 	LED_A_OFF();
 }
 
@@ -1062,7 +1080,7 @@ void MifarePersonalizeUID(uint8_t keyType, uint8_t perso_option, uint8_t *data) 
 
 		uint8_t block_number = 0;
 		uint64_t key = bytes_to_num(data, 6);
-		if (mifare_classic_auth(pcs, cuid, block_number, keyType, key, AUTH_FIRST)) {
+		if (mifare_classic_auth(pcs, cuid, block_number, keyType, key, AUTH_FIRST, NULL)) {
 			if (MF_DBGLEVEL >= 1)   Dbprintf("Auth error");
 			break;
 		}
@@ -1163,13 +1181,13 @@ void MifareECardLoad(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *datai
 	for (uint8_t sectorNo = 0; isOK && sectorNo < numSectors; sectorNo++) {
 		ui64Key = emlGetKey(sectorNo, keyType);
 		if (sectorNo == 0){
-			if(isOK && mifare_classic_auth(pcs, cuid, FirstBlockOfSector(sectorNo), keyType, ui64Key, AUTH_FIRST)) {
+			if(isOK && mifare_classic_auth(pcs, cuid, FirstBlockOfSector(sectorNo), keyType, ui64Key, AUTH_FIRST, NULL)) {
 				isOK = false;
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Sector[%2d]. Auth error", sectorNo);
 				break;
 			}
 		} else {
-			if(isOK && mifare_classic_auth(pcs, cuid, FirstBlockOfSector(sectorNo), keyType, ui64Key, AUTH_NESTED)) {
+			if(isOK && mifare_classic_auth(pcs, cuid, FirstBlockOfSector(sectorNo), keyType, ui64Key, AUTH_NESTED, NULL)) {
 				isOK = false;
 				if (MF_DBGLEVEL >= 1)   Dbprintf("Sector[%2d]. Auth nested error", sectorNo);
 				break;
@@ -1339,13 +1357,14 @@ void MifareCWipe(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *datain){
 		break;
 	}
 
+	// reset fpga
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
 	// send USB response
 	LED_B_ON();
 	cmd_send(CMD_ACK,isOK,0,0,NULL,0);
 	LED_B_OFF();
 
-	// reset fpga
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LEDsoff();
 
 	return;
@@ -1477,14 +1496,15 @@ void MifareCSetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *datai
 		break;
 	}
 
+	if ((workFlags & 0x10) || (!isOK)) {
+		FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+	}
+
 	LED_B_ON();
 	cmd_send(CMD_ACK,isOK,0,0,uid,4);
 	LED_B_OFF();
 
-	if ((workFlags & 0x10) || (!isOK)) {
-		FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-		LEDsoff();
-	}
+	LEDsoff();
 }
 
 
@@ -1561,6 +1581,10 @@ void MifareCGetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *datai
 		break;
 	}
 
+	if ((workFlags & 0x10) || (!isOK)) {
+		FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+	}
+
 	LED_B_ON();
 	if (workFlags & 0x20) {
 		if (isOK)
@@ -1570,10 +1594,7 @@ void MifareCGetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *datai
 		cmd_send(CMD_ACK,isOK,0,0,data,18);
 	LED_B_OFF();
 
-	if ((workFlags & 0x10) || (!isOK)) {
-		FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-		LEDsoff();
-	}
+	LEDsoff();
 }
 
 void MifareCIdent(){
@@ -1609,11 +1630,12 @@ void MifareCIdent(){
 	// From iceman1001: removed the if,  since some magic tags misbehavies and send an answer to it.
 	mifare_classic_halt(NULL, 0);
 
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
 	LED_B_ON();
 	cmd_send(CMD_ACK,isOK,0,0,0,0);
 	LED_B_OFF();
 
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LEDsoff();
 }
 
@@ -1644,7 +1666,8 @@ void Mifare_DES_Auth1(uint8_t arg0, uint8_t *datain){
 	}
 
 	if (MF_DBGLEVEL >= MF_DBG_EXTENDED) DbpString("AUTH 1 FINISHED");
-	cmd_send(CMD_ACK,1,cuid,0,dataout, sizeof(dataout));
+
+	cmd_send(CMD_ACK, 1, cuid, 0, dataout, sizeof(dataout));
 }
 
 void Mifare_DES_Auth2(uint32_t arg0, uint8_t *datain){
@@ -1658,16 +1681,17 @@ void Mifare_DES_Auth2(uint32_t arg0, uint8_t *datain){
 
 	isOK = mifare_desfire_des_auth2(cuid, key, dataout);
 
-	if( isOK) {
+	if (isOK) {
 		if (MF_DBGLEVEL >= MF_DBG_EXTENDED) Dbprintf("Authentication part2: Failed");
 		OnError(4);
 		return;
 	}
 
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
 	if (MF_DBGLEVEL >= MF_DBG_EXTENDED) DbpString("AUTH 2 FINISHED");
 
 	cmd_send(CMD_ACK, isOK, 0, 0, dataout, sizeof(dataout));
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	LEDsoff();
 }
 
